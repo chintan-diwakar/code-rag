@@ -58,8 +58,13 @@ def main() -> int:
     print(f"Parse errors:     {len(parse_errors)}")
     print()
     print(f"Total chunks:     {len(all_chunks)}")
-    plurals = {"function": "functions:", "class": "classes:", "method": "methods:"}
-    for kind in ("function", "class", "method"):
+    plurals = {
+        "module": "modules:",
+        "function": "functions:",
+        "class": "classes:",
+        "method": "methods:",
+    }
+    for kind in ("module", "function", "class", "method"):
         if kind in by_kind:
             print(f"  {plurals[kind]:<14}{by_kind[kind]}")
     print(f"  with docstring: {has_docstring} ({100 * has_docstring // max(len(all_chunks), 1)}%)")
