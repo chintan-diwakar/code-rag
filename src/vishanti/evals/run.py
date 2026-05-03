@@ -1,14 +1,17 @@
-"""Run the eval set against the current pipeline. Writes evals/REPORT.md.
+"""Run the eval set against vector / bm25 / hybrid pipelines.
 
 Usage:
     .venv/Scripts/python -m vishanti.evals.run
 
-Pipeline (week-1 baseline):
+Writes evals/REPORT.md (hybrid headline) and evals/ABLATION.md (3-way diff).
+
+Pipeline:
     1. AST-chunk every .py in data/flask/src/flask
-    2. Embed all chunk.code with bge-small-en-v1.5 (in-memory cosine retriever)
-    3. For each of the 30 questions: embed the question, retrieve top-5
-    4. A hit = retrieved chunk overlaps any ground-truth span (file_path + line range)
-    5. Report recall@5 overall and per category, plus latency stats and sample misses
+    2. Embed all chunk.code with bge-small-en-v1.5
+    3. Build a VectorRetriever, a BM25Retriever, and a HybridRetriever
+    4. For each of the 30 questions, run all three retrievers
+    5. A hit = retrieved chunk overlaps any ground-truth span
+    6. Report recall@5 overall and per category for each retriever
 """
 
 from __future__ import annotations
@@ -16,19 +19,43 @@ from __future__ import annotations
 import json
 import statistics
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 from vishanti.chunker_ast import CodeChunk, chunk_python_file
 from vishanti.embedder import DEFAULT_MODEL, Embedder
-from vishanti.evals.types import EvalQuestion, GroundTruthSpan, load_dataset
-from vishanti.retriever import InMemoryRetriever, RetrievalHit
+from vishanti.evals.types import EvalQuestion, load_dataset
+from vishanti.retriever import (
+    BM25Retriever,
+    HybridRetriever,
+    RetrievalHit,
+    VectorRetriever,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FLASK_SRC = REPO_ROOT / "data" / "flask" / "src" / "flask"
 DATASET_PATH = REPO_ROOT / "evals" / "dataset.json"
 REPORT_PATH = REPO_ROOT / "evals" / "REPORT.md"
+ABLATION_PATH = REPO_ROOT / "evals" / "ABLATION.md"
 K = 5
+HEADLINE_MODE = "hybrid"
+
+
+@dataclass
+class QueryResult:
+    question: EvalQuestion
+    hits: list[RetrievalHit]
+    hit: bool
+
+
+@dataclass
+class ModeResult:
+    mode: str
+    overall_recall: float
+    by_category: dict[str, float] = field(default_factory=dict)
+    rows: list[QueryResult] = field(default_factory=list)
+    latency_ms: list[float] = field(default_factory=list)
 
 
 def main() -> int:
@@ -51,55 +78,44 @@ def main() -> int:
     chunk_vectors = embedder.encode([c.code for c in chunks])
     print(f"  done in {time.perf_counter() - t0:.2f}s")
 
-    retriever = InMemoryRetriever(chunk_vectors, chunks)
+    print("Step 4: building retrievers...")
+    vector_retriever = VectorRetriever(chunk_vectors, chunks)
+    bm25_retriever = BM25Retriever(chunks)
+    hybrid_retriever = HybridRetriever(vector_retriever, bm25_retriever)
 
-    print("Step 4: loading eval set...")
+    print("Step 5: loading eval set + embedding questions...")
     dataset = load_dataset(DATASET_PATH)
+    question_vectors = embedder.encode([q.question for q in dataset.questions])
     print(f"  {len(dataset.questions)} questions")
 
-    print(f"Step 5: running retrieval (k={K}) for each question...")
-    t0 = time.perf_counter()
-    question_vectors = embedder.encode([q.question for q in dataset.questions])
-    embed_time = time.perf_counter() - t0
+    print("\nStep 6: running retrieval for each mode...")
 
-    per_query_latency: list[float] = []
-    rows: list[QueryResult] = []
-    for question, qv in zip(dataset.questions, question_vectors, strict=True):
-        ts = time.perf_counter()
-        hits = retriever.search(qv, k=K)
-        per_query_latency.append((time.perf_counter() - ts) * 1000.0)
-        rows.append(QueryResult(question=question, hits=hits, hit=_is_hit(question, hits)))
+    runs: list[ModeResult] = []
+    runs.append(_run_mode("vector", lambda q, qv: vector_retriever.search(qv, K), dataset, question_vectors))
+    runs.append(_run_mode("bm25", lambda q, qv: bm25_retriever.search(q.question, K), dataset, question_vectors))
+    runs.append(_run_mode("hybrid", lambda q, qv: hybrid_retriever.search(q.question, qv, K), dataset, question_vectors))
 
-    print(f"  embedded {len(dataset.questions)} questions in {embed_time:.2f}s")
-    print(
-        f"  retrieval p50={statistics.median(per_query_latency):.2f}ms, "
-        f"p95={_p95(per_query_latency):.2f}ms"
-    )
+    for r in runs:
+        print(
+            f"  {r.mode:<8}  recall@{K}={r.overall_recall:.3f}   "
+            f"p50={statistics.median(r.latency_ms):.2f}ms   "
+            f"p95={_p95(r.latency_ms):.2f}ms"
+        )
 
-    overall, by_category = _compute_recall(rows)
-    print(f"\nrecall@{K} = {overall:.3f} ({sum(r.hit for r in rows)}/{len(rows)})")
-    for cat, score in sorted(by_category.items()):
-        cat_count = sum(1 for r in rows if r.question.category == cat)
-        cat_hits = sum(1 for r in rows if r.question.category == cat and r.hit)
-        print(f"  {cat:<14} {score:.3f}  ({cat_hits}/{cat_count})")
+    headline = next(r for r in runs if r.mode == HEADLINE_MODE)
+    config = {
+        "model": DEFAULT_MODEL,
+        "k": K,
+        "chunks": len(chunks),
+        "questions": len(dataset.questions),
+        "chunker": "AST (tree-sitter), MAX_CLASS_LINES=100",
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
 
-    print(f"\nWriting report to {REPORT_PATH.relative_to(REPO_ROOT)}")
-    _write_report(
-        report_path=REPORT_PATH,
-        config={
-            "model": DEFAULT_MODEL,
-            "k": K,
-            "chunks": len(chunks),
-            "questions": len(dataset.questions),
-            "retriever": "in-memory cosine",
-            "chunker": "AST (tree-sitter), MAX_CLASS_LINES=100",
-            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        },
-        overall=overall,
-        by_category=by_category,
-        rows=rows,
-        latency_ms=per_query_latency,
-    )
+    print(f"\nWriting report to {REPORT_PATH.relative_to(REPO_ROOT)} (mode={HEADLINE_MODE})")
+    _write_report(REPORT_PATH, config, headline)
+    print(f"Writing ablation to {ABLATION_PATH.relative_to(REPO_ROOT)}")
+    _write_ablation(ABLATION_PATH, config, runs)
     print("done.")
     return 0
 
@@ -107,13 +123,26 @@ def main() -> int:
 # ---------------------------------------------------------------------------
 
 
-class QueryResult:
-    __slots__ = ("question", "hits", "hit")
+def _run_mode(mode, do_search, dataset, question_vectors):
+    rows: list[QueryResult] = []
+    latency: list[float] = []
+    for question, qv in zip(dataset.questions, question_vectors, strict=True):
+        ts = time.perf_counter()
+        hits = do_search(question, qv)
+        latency.append((time.perf_counter() - ts) * 1000.0)
+        rows.append(QueryResult(question=question, hits=hits, hit=_is_hit(question, hits)))
 
-    def __init__(self, question: EvalQuestion, hits: list[RetrievalHit], hit: bool) -> None:
-        self.question = question
-        self.hits = hits
-        self.hit = hit
+    overall = sum(r.hit for r in rows) / max(len(rows), 1)
+    by_cat: dict[str, list[bool]] = {}
+    for r in rows:
+        by_cat.setdefault(r.question.category, []).append(r.hit)
+    return ModeResult(
+        mode=mode,
+        overall_recall=overall,
+        by_category={cat: sum(v) / len(v) for cat, v in by_cat.items()},
+        rows=rows,
+        latency_ms=latency,
+    )
 
 
 def _chunk_repo(src_dir: Path) -> list[CodeChunk]:
@@ -123,9 +152,7 @@ def _chunk_repo(src_dir: Path) -> list[CodeChunk]:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        # Store the file_path on each chunk relative to the repo root, matching
-        # the eval dataset's ground-truth file_path format.
-        rel = path.relative_to(src_dir.parents[1])  # data/flask -> "src/flask/..."
+        rel = path.relative_to(src_dir.parents[1])
         for c in chunk_python_file(str(rel).replace("\\", "/"), text):
             chunks.append(c)
     return chunks
@@ -139,14 +166,6 @@ def _is_hit(question: EvalQuestion, hits: list[RetrievalHit]) -> bool:
     return False
 
 
-def _compute_recall(rows: list[QueryResult]) -> tuple[float, dict[str, float]]:
-    overall = sum(r.hit for r in rows) / max(len(rows), 1)
-    by_cat: dict[str, list[bool]] = {}
-    for r in rows:
-        by_cat.setdefault(r.question.category, []).append(r.hit)
-    return overall, {cat: sum(v) / len(v) for cat, v in by_cat.items()}
-
-
 def _p95(xs: list[float]) -> float:
     if not xs:
         return 0.0
@@ -154,49 +173,52 @@ def _p95(xs: list[float]) -> float:
     return s[min(int(len(s) * 0.95), len(s) - 1)]
 
 
-def _write_report(
-    *,
-    report_path: Path,
-    config: dict,
-    overall: float,
-    by_category: dict[str, float],
-    rows: list[QueryResult],
-    latency_ms: list[float],
-) -> None:
-    misses = [r for r in rows if not r.hit]
+# ---------------------------------------------------------------------------
+# Report writers
+# ---------------------------------------------------------------------------
+
+
+def _write_report(path: Path, config: dict, run: ModeResult) -> None:
     lines: list[str] = []
-    lines.append("# Eval report")
+    lines.append(f"# Eval report ({run.mode})")
     lines.append("")
     lines.append(f"_Generated {config['ts']}_")
     lines.append("")
     lines.append("## Configuration")
     lines.append("")
-    lines.append(f"- **Model:** `{config['model']}`")
-    lines.append(f"- **Retriever:** {config['retriever']}")
+    lines.append(f"- **Mode:** `{run.mode}` (headline)")
+    lines.append(f"- **Embedder:** `{config['model']}`")
     lines.append(f"- **Chunker:** {config['chunker']}")
     lines.append(f"- **Chunks indexed:** {config['chunks']}")
     lines.append(f"- **Questions:** {config['questions']}")
     lines.append(f"- **k:** {config['k']}")
     lines.append("")
+    lines.append("See `ABLATION.md` for the comparison across vector / bm25 / hybrid.")
+    lines.append("")
     lines.append("## Results")
     lines.append("")
     lines.append("| Slice | recall@5 | hits / total |")
     lines.append("|---|---|---|")
-    lines.append(f"| **Overall** | **{overall:.3f}** | {sum(r.hit for r in rows)}/{len(rows)} |")
+    lines.append(
+        f"| **Overall** | **{run.overall_recall:.3f}** | "
+        f"{sum(r.hit for r in run.rows)}/{len(run.rows)} |"
+    )
     for cat in ("where_defined", "how_works", "what_calls"):
-        score = by_category.get(cat, 0.0)
-        cat_total = sum(1 for r in rows if r.question.category == cat)
-        cat_hits = sum(1 for r in rows if r.question.category == cat and r.hit)
+        score = run.by_category.get(cat, 0.0)
+        cat_total = sum(1 for r in run.rows if r.question.category == cat)
+        cat_hits = sum(1 for r in run.rows if r.question.category == cat and r.hit)
         lines.append(f"| {cat} | {score:.3f} | {cat_hits}/{cat_total} |")
     lines.append("")
     lines.append("## Retrieval latency")
     lines.append("")
-    lines.append(f"- p50: {statistics.median(latency_ms):.2f} ms")
-    lines.append(f"- p95: {_p95(latency_ms):.2f} ms")
-    lines.append(f"- max: {max(latency_ms):.2f} ms")
+    lines.append(f"- p50: {statistics.median(run.latency_ms):.2f} ms")
+    lines.append(f"- p95: {_p95(run.latency_ms):.2f} ms")
+    lines.append(f"- max: {max(run.latency_ms):.2f} ms")
     lines.append("")
+
+    misses = [r for r in run.rows if not r.hit]
     if misses:
-        lines.append(f"## Sample misses (showing first {min(5, len(misses))} of {len(misses)})")
+        lines.append(f"## Sample misses (first {min(5, len(misses))} of {len(misses)})")
         lines.append("")
         for r in misses[:5]:
             lines.append(f"### {r.question.id} [{r.question.category}]")
@@ -210,42 +232,128 @@ def _write_report(
             for hit in r.hits:
                 parent = f" ({hit.chunk.parent_class})" if hit.chunk.parent_class else ""
                 lines.append(
-                    f"- {hit.score:.3f}  `{hit.chunk.file_path}:{hit.chunk.start_line}-{hit.chunk.end_line}`  "
+                    f"- {hit.score:.3f}  `{hit.chunk.file_path}:"
+                    f"{hit.chunk.start_line}-{hit.chunk.end_line}`  "
                     f"{hit.chunk.symbol_kind} `{hit.chunk.symbol_name}`{parent}"
                 )
             lines.append("")
 
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_ablation(path: Path, config: dict, runs: list[ModeResult]) -> None:
+    lines: list[str] = []
+    lines.append("# Ablation: vector vs bm25 vs hybrid")
+    lines.append("")
+    lines.append(f"_Generated {config['ts']}_")
+    lines.append("")
+    lines.append("## Setup")
+    lines.append("")
+    lines.append(f"- **Embedder:** `{config['model']}`")
+    lines.append(f"- **Chunker:** {config['chunker']}")
+    lines.append(f"- **Chunks indexed:** {config['chunks']}")
+    lines.append(f"- **Questions:** {config['questions']}")
+    lines.append(f"- **k:** {config['k']}")
+    lines.append("")
+    lines.append("## Recall@5 by mode and category")
+    lines.append("")
+    headers = ["Mode"] + ["overall", "where_defined", "how_works", "what_calls"]
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("|" + "|".join(["---"] * len(headers)) + "|")
+    for r in runs:
+        row = [
+            f"**{r.mode}**",
+            f"{r.overall_recall:.3f}",
+            f"{r.by_category.get('where_defined', 0):.3f}",
+            f"{r.by_category.get('how_works', 0):.3f}",
+            f"{r.by_category.get('what_calls', 0):.3f}",
+        ]
+        lines.append("| " + " | ".join(row) + " |")
+    lines.append("")
+    lines.append("## Latency (ms per query)")
+    lines.append("")
+    lines.append("| Mode | p50 | p95 | max |")
+    lines.append("|---|---|---|---|")
+    for r in runs:
+        lines.append(
+            f"| {r.mode} | {statistics.median(r.latency_ms):.2f} | "
+            f"{_p95(r.latency_ms):.2f} | {max(r.latency_ms):.2f} |"
+        )
+    lines.append("")
+
+    # Per-question table — useful for spotting where each mode wins/loses
+    lines.append("## Per-question hits")
+    lines.append("")
+    lines.append("| Q | category | " + " | ".join(r.mode for r in runs) + " |")
+    lines.append("|" + "|".join(["---"] * (2 + len(runs))) + "|")
+    questions = runs[0].rows
+    for i, _ in enumerate(questions):
+        q = questions[i].question
+        cells = []
+        for r in runs:
+            cells.append("OK" if r.rows[i].hit else "miss")
+        lines.append(f"| {q.id} | {q.category} | " + " | ".join(cells) + " |")
+    lines.append("")
+
+    # Wins added by hybrid over vector and bm25 alone
+    vector_run = next(r for r in runs if r.mode == "vector")
+    bm25_run = next(r for r in runs if r.mode == "bm25")
+    hybrid_run = next(r for r in runs if r.mode == "hybrid")
+    hybrid_only_wins = [
+        i
+        for i in range(len(hybrid_run.rows))
+        if hybrid_run.rows[i].hit
+        and not vector_run.rows[i].hit
+        and not bm25_run.rows[i].hit
+    ]
+    union_misses = [
+        i
+        for i in range(len(hybrid_run.rows))
+        if not hybrid_run.rows[i].hit
+        and not vector_run.rows[i].hit
+        and not bm25_run.rows[i].hit
+    ]
+    lines.append("## Diagnostics")
+    lines.append("")
+    lines.append(
+        f"- Questions hybrid retrieves that NEITHER single mode does: "
+        f"{len(hybrid_only_wins)}  "
+        f"(`{', '.join(hybrid_run.rows[i].question.id for i in hybrid_only_wins) or 'none'}`)"
+    )
+    lines.append(
+        f"- Questions all 3 modes miss (chunker / dataset issues): "
+        f"{len(union_misses)}  "
+        f"(`{', '.join(hybrid_run.rows[i].question.id for i in union_misses) or 'none'}`)"
+    )
+    lines.append("")
+
+    lines.append("## Notes")
+    lines.append("")
+    lines.append("- Vector is bge-small-en-v1.5 cosine over L2-normalized embeddings.")
+    lines.append("- BM25 uses code-aware tokenization (camelCase + snake_case split, lowercased).")
+    lines.append("- Hybrid uses Reciprocal Rank Fusion (c=60, fetch_k=20 per retriever).")
+    lines.append("")
+
     lines.append("## Raw results (JSON)")
     lines.append("")
-    lines.append("<details><summary>per-question</summary>")
+    lines.append("<details><summary>per-question per-mode</summary>")
     lines.append("")
+    raw = [
+        {
+            "id": runs[0].rows[i].question.id,
+            "category": runs[0].rows[i].question.category,
+            **{r.mode: r.rows[i].hit for r in runs},
+        }
+        for i in range(len(runs[0].rows))
+    ]
     lines.append("```json")
-    lines.append(
-        json.dumps(
-            [
-                {
-                    "id": r.question.id,
-                    "category": r.question.category,
-                    "hit": r.hit,
-                    "top_chunk": (
-                        f"{r.hits[0].chunk.file_path}:"
-                        f"{r.hits[0].chunk.start_line}-{r.hits[0].chunk.end_line}"
-                        if r.hits
-                        else None
-                    ),
-                    "top_score": r.hits[0].score if r.hits else None,
-                }
-                for r in rows
-            ],
-            indent=2,
-        )
-    )
+    lines.append(json.dumps(raw, indent=2))
     lines.append("```")
     lines.append("")
     lines.append("</details>")
     lines.append("")
 
-    report_path.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 if __name__ == "__main__":
