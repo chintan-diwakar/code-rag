@@ -6,6 +6,8 @@ requires-python = ">=3.11"
 dependencies = [
     "tree-sitter>=0.23",
     "tree-sitter-python>=0.23",
+    "fastembed>=0.8",
+    "numpy>=2.0",
 ]
 
 [project.optional-dependencies]
