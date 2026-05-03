@@ -1,0 +1,511 @@
+{
+  "version": "0.1.0",
+  "repo": "pallets/flask",
+  "repo_root": "data/flask",
+  "notes": "v1 hand-curated set. 30 questions, 10 per category. Ground truth verified by reading source. confidence='medium' flags questions whose ground truth spans multiple files or where reasonable people might disagree on the canonical answer.",
+  "questions": [
+    {
+      "id": "Q01",
+      "category": "where_defined",
+      "question": "Where is the Flask class defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 109,
+          "end_line": 150,
+          "rationale": "class Flask(App): is at line 109; the docstring and class-level definitions span the next ~40 lines."
+        }
+      ],
+      "expected_keywords": ["class Flask", "App"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q02",
+      "category": "where_defined",
+      "question": "Where is the Blueprint class defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/blueprints.py",
+          "start_line": 18,
+          "end_line": 50,
+          "rationale": "class Blueprint(SansioBlueprint): at line 18; subclass of SansioBlueprint from sansio/blueprints.py."
+        }
+      ],
+      "expected_keywords": ["class Blueprint", "SansioBlueprint"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q03",
+      "category": "where_defined",
+      "question": "Where is the current_app proxy defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/globals.py",
+          "start_line": 40,
+          "end_line": 49,
+          "rationale": "current_app is a LocalProxy bound to the _cv_app ContextVar, defined at line 44; the ContextVar itself is at line 40."
+        }
+      ],
+      "expected_keywords": ["current_app", "LocalProxy", "ContextVar"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q04",
+      "category": "where_defined",
+      "question": "Where is the request global proxy defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/globals.py",
+          "start_line": 57,
+          "end_line": 59,
+          "rationale": "request: RequestProxy = LocalProxy(_cv_app, 'request', ...) at line 57."
+        }
+      ],
+      "expected_keywords": ["request", "LocalProxy"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q05",
+      "category": "where_defined",
+      "question": "Where is the g object (per-request globals) defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/globals.py",
+          "start_line": 47,
+          "end_line": 49,
+          "rationale": "g: _AppCtxGlobalsProxy = LocalProxy(_cv_app, 'g', ...) at line 47."
+        },
+        {
+          "file_path": "src/flask/ctx.py",
+          "start_line": 30,
+          "end_line": 60,
+          "rationale": "_AppCtxGlobals class — the type that g proxies to — is defined here."
+        }
+      ],
+      "expected_keywords": ["g", "_AppCtxGlobals", "LocalProxy"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q06",
+      "category": "where_defined",
+      "question": "Where is the Flask Config class defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/config.py",
+          "start_line": 50,
+          "end_line": 100,
+          "rationale": "class Config(dict): at line 50."
+        }
+      ],
+      "expected_keywords": ["class Config", "dict"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q07",
+      "category": "where_defined",
+      "question": "Where is the route decorator (@app.route) implemented?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/sansio/scaffold.py",
+          "start_line": 336,
+          "end_line": 395,
+          "rationale": "Scaffold.route() defined at line 336; Flask inherits from App which inherits from Scaffold."
+        }
+      ],
+      "expected_keywords": ["def route", "rule", "endpoint"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q08",
+      "category": "where_defined",
+      "question": "Where is the send_file function defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/helpers.py",
+          "start_line": 417,
+          "end_line": 540,
+          "rationale": "def send_file(...) at line 417 in helpers.py."
+        }
+      ],
+      "expected_keywords": ["def send_file"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q09",
+      "category": "where_defined",
+      "question": "Where is the url_for function defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/helpers.py",
+          "start_line": 200,
+          "end_line": 253,
+          "rationale": "def url_for(...) at line 200 in helpers.py."
+        }
+      ],
+      "expected_keywords": ["def url_for", "endpoint"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q10",
+      "category": "where_defined",
+      "question": "Where is the SecureCookieSessionInterface defined?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/sessions.py",
+          "start_line": 284,
+          "end_line": 385,
+          "rationale": "class SecureCookieSessionInterface(SessionInterface): at line 284."
+        }
+      ],
+      "expected_keywords": ["SecureCookieSessionInterface", "SessionInterface"],
+      "confidence": "high"
+    },
+
+    {
+      "id": "Q11",
+      "category": "how_works",
+      "question": "How does Flask dispatch a request to a view function?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 966,
+          "end_line": 990,
+          "rationale": "Flask.dispatch_request matches the URL rule and calls the view function via self.view_functions[rule.endpoint](**view_args)."
+        }
+      ],
+      "expected_keywords": ["dispatch_request", "view_functions", "url_rule"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q12",
+      "category": "how_works",
+      "question": "How does the current_app proxy resolve to the actual Flask app instance?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/globals.py",
+          "start_line": 40,
+          "end_line": 49,
+          "rationale": "current_app is a LocalProxy backed by the _cv_app ContextVar; the ContextVar is set when an AppContext is pushed."
+        },
+        {
+          "file_path": "src/flask/ctx.py",
+          "start_line": 260,
+          "end_line": 350,
+          "rationale": "AppContext.push() sets _cv_app to itself, which is what current_app dereferences via LocalProxy."
+        }
+      ],
+      "expected_keywords": ["LocalProxy", "ContextVar", "_cv_app", "AppContext"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q13",
+      "category": "how_works",
+      "question": "How does Flask serve static files?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 392,
+          "end_line": 420,
+          "rationale": "Flask.send_static_file at line 392 uses send_from_directory under static_folder; routed via the implicit /static/<path:filename> rule."
+        }
+      ],
+      "expected_keywords": ["send_static_file", "static_folder", "send_from_directory"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q14",
+      "category": "how_works",
+      "question": "How does the before_request handler get registered?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/sansio/scaffold.py",
+          "start_line": 460,
+          "end_line": 487,
+          "rationale": "Scaffold.before_request appends the function to self.before_request_funcs[None]."
+        }
+      ],
+      "expected_keywords": ["before_request", "before_request_funcs"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q15",
+      "category": "how_works",
+      "question": "How does Flask handle JSON serialization for response bodies?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/json/provider.py",
+          "start_line": 124,
+          "end_line": 215,
+          "rationale": "DefaultJSONProvider serializes via json.dumps with custom default for datetime/UUID/etc; bound to app.json."
+        },
+        {
+          "file_path": "src/flask/json/provider.py",
+          "start_line": 19,
+          "end_line": 110,
+          "rationale": "JSONProvider is the abstract base class for pluggable JSON behavior."
+        }
+      ],
+      "expected_keywords": ["JSONProvider", "DefaultJSONProvider", "dumps"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q16",
+      "category": "how_works",
+      "question": "How does the Flask test client work?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 755,
+          "end_line": 810,
+          "rationale": "Flask.test_client returns a FlaskClient instance bound to the app."
+        },
+        {
+          "file_path": "src/flask/testing.py",
+          "start_line": 1,
+          "end_line": 298,
+          "rationale": "FlaskClient extends werkzeug.test.Client and pushes app context for each request."
+        }
+      ],
+      "expected_keywords": ["test_client", "FlaskClient", "Client"],
+      "confidence": "medium",
+      "notes": "Ground truth spans multiple files — answer involves both the factory and the client class."
+    },
+    {
+      "id": "Q17",
+      "category": "how_works",
+      "question": "How does Blueprint registration with an application work?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/sansio/app.py",
+          "start_line": 570,
+          "end_line": 640,
+          "rationale": "App.register_blueprint stores the blueprint and calls blueprint.register(self, options) which copies its rules into the app."
+        }
+      ],
+      "expected_keywords": ["register_blueprint", "blueprint", "register"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q18",
+      "category": "how_works",
+      "question": "How does Flask sign session cookies to prevent tampering?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/sessions.py",
+          "start_line": 284,
+          "end_line": 385,
+          "rationale": "SecureCookieSessionInterface uses itsdangerous.URLSafeTimedSerializer with the app's SECRET_KEY to sign session payloads."
+        }
+      ],
+      "expected_keywords": ["SecureCookieSessionInterface", "URLSafeTimedSerializer", "SECRET_KEY"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q19",
+      "category": "how_works",
+      "question": "How does Flask construct URLs for endpoints (url_for)?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/helpers.py",
+          "start_line": 200,
+          "end_line": 253,
+          "rationale": "url_for resolves blueprint-relative endpoints, then calls the bound url_adapter.build to produce the URL."
+        },
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 509,
+          "end_line": 560,
+          "rationale": "Flask.create_url_adapter creates the werkzeug MapAdapter that url_for uses."
+        }
+      ],
+      "expected_keywords": ["url_for", "url_adapter", "build"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q20",
+      "category": "how_works",
+      "question": "How does Flask load configuration from environment variables?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/config.py",
+          "start_line": 50,
+          "end_line": 367,
+          "rationale": "Config class methods: from_envvar, from_prefixed_env, from_file, from_object handle loading config from various sources."
+        }
+      ],
+      "expected_keywords": ["from_envvar", "from_prefixed_env", "Config"],
+      "confidence": "high"
+    },
+
+    {
+      "id": "Q21",
+      "category": "what_calls",
+      "question": "What invokes the before_request handlers during a request?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1366,
+          "end_line": 1394,
+          "rationale": "Flask.preprocess_request iterates url_value_preprocessors and before_request_funcs and invokes them in order."
+        }
+      ],
+      "expected_keywords": ["preprocess_request", "before_request_funcs"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q22",
+      "category": "what_calls",
+      "question": "What invokes the after_request handlers during a request?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1394,
+          "end_line": 1450,
+          "rationale": "Flask.process_response iterates after_request_funcs in reverse order; called by finalize_request after make_response."
+        }
+      ],
+      "expected_keywords": ["process_response", "after_request_funcs"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q23",
+      "category": "what_calls",
+      "question": "What is the WSGI entrypoint of a Flask application?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1618,
+          "end_line": 1625,
+          "rationale": "Flask.__call__ delegates to self.wsgi_app(environ, start_response)."
+        },
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1566,
+          "end_line": 1617,
+          "rationale": "wsgi_app is the actual WSGI implementation: pushes context, dispatches, handles exceptions, pops context."
+        }
+      ],
+      "expected_keywords": ["__call__", "wsgi_app", "environ", "start_response"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q24",
+      "category": "what_calls",
+      "question": "What calls dispatch_request?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 992,
+          "end_line": 1019,
+          "rationale": "Flask.full_dispatch_request calls self.dispatch_request(ctx) at line 1016 after preprocess_request."
+        }
+      ],
+      "expected_keywords": ["full_dispatch_request", "dispatch_request"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q25",
+      "category": "what_calls",
+      "question": "What calls make_response to convert a view return value into a Response object?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1021,
+          "end_line": 1060,
+          "rationale": "Flask.finalize_request calls self.make_response(rv) at line 1039; finalize_request is invoked from full_dispatch_request."
+        }
+      ],
+      "expected_keywords": ["finalize_request", "make_response"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q26",
+      "category": "what_calls",
+      "question": "What handles exceptions raised by view functions?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 992,
+          "end_line": 1019,
+          "rationale": "full_dispatch_request wraps dispatch_request in try/except and calls self.handle_user_exception on any Exception."
+        },
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1566,
+          "end_line": 1617,
+          "rationale": "wsgi_app catches anything that escapes full_dispatch_request and calls self.handle_exception."
+        }
+      ],
+      "expected_keywords": ["handle_user_exception", "handle_exception"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q27",
+      "category": "what_calls",
+      "question": "What calls process_response (the after_request hook runner)?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1021,
+          "end_line": 1090,
+          "rationale": "Flask.finalize_request calls self.process_response(response) after make_response."
+        }
+      ],
+      "expected_keywords": ["finalize_request", "process_response"],
+      "confidence": "high"
+    },
+    {
+      "id": "Q28",
+      "category": "what_calls",
+      "question": "What invokes teardown_request handlers when a request completes?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/app.py",
+          "start_line": 1566,
+          "end_line": 1617,
+          "rationale": "wsgi_app's finally block calls ctx.pop(error), and AppContext.pop runs the teardown handlers via do_teardown_request and do_teardown_appcontext."
+        },
+        {
+          "file_path": "src/flask/ctx.py",
+          "start_line": 260,
+          "end_line": 540,
+          "rationale": "AppContext.pop invokes the registered teardown functions on context exit."
+        }
+      ],
+      "expected_keywords": ["wsgi_app", "ctx.pop", "teardown"],
+      "confidence": "medium",
+      "notes": "Answer spans wsgi_app's finally + AppContext.pop implementation."
+    },
+    {
+      "id": "Q29",
+      "category": "what_calls",
+      "question": "What calls open_session to load a session at the start of a request?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/ctx.py",
+          "start_line": 260,
+          "end_line": 540,
+          "rationale": "AppContext.push() invokes self.app.session_interface.open_session(self.app, self.request) when establishing the request context."
+        }
+      ],
+      "expected_keywords": ["open_session", "session_interface", "AppContext"],
+      "confidence": "medium",
+      "notes": "Exact line of the open_session call sits inside AppContext setup; reviewer should accept any chunk in ctx.py near AppContext.push."
+    },
+    {
+      "id": "Q30",
+      "category": "what_calls",
+      "question": "What is the entry point when running 'flask run' from the command line?",
+      "ground_truth": [
+        {
+          "file_path": "src/flask/cli.py",
+          "start_line": 935,
+          "end_line": 1000,
+          "rationale": "run_command in cli.py is the click command bound to 'flask run'; it calls werkzeug's run_simple with the loaded app."
+        }
+      ],
+      "expected_keywords": ["run_command", "run_simple", "click"],
+      "confidence": "high"
+    }
+  ]
+}
