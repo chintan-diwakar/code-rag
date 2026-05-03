@@ -39,10 +39,10 @@ def main() -> int:
             files_with_zero.append(path)
         all_chunks.extend(chunks)
 
-    by_kind = {"function": 0, "class": 0}
+    by_kind: dict[str, int] = {}
     has_docstring = 0
     for c in all_chunks:
-        by_kind[c.symbol_kind] += 1
+        by_kind[c.symbol_kind] = by_kind.get(c.symbol_kind, 0) + 1
         if c.docstring:
             has_docstring += 1
 
@@ -50,7 +50,7 @@ def main() -> int:
     sizes.sort(key=lambda pair: pair[0], reverse=True)
 
     print(f"{'=' * 60}")
-    print(f"vishanti AST chunker — smoke test on pallets/flask")
+    print(f"vishanti AST chunker - smoke test on pallets/flask")
     print(f"{'=' * 60}")
     print(f"Source dir:       {FLASK_SRC.relative_to(REPO_ROOT)}")
     print(f"Python files:     {len(py_files)}")
@@ -58,19 +58,23 @@ def main() -> int:
     print(f"Parse errors:     {len(parse_errors)}")
     print()
     print(f"Total chunks:     {len(all_chunks)}")
-    print(f"  functions:      {by_kind['function']}")
-    print(f"  classes:        {by_kind['class']}")
+    plurals = {"function": "functions:", "class": "classes:", "method": "methods:"}
+    for kind in ("function", "class", "method"):
+        if kind in by_kind:
+            print(f"  {plurals[kind]:<14}{by_kind[kind]}")
     print(f"  with docstring: {has_docstring} ({100 * has_docstring // max(len(all_chunks), 1)}%)")
     print()
     print("Largest 5 chunks (lines):")
     for line_count, chunk in sizes[:5]:
         rel = Path(chunk.file_path).relative_to(REPO_ROOT)
-        print(f"  {line_count:>4}  {chunk.symbol_kind:<8} {chunk.symbol_name:<30}  {rel}:{chunk.start_line}")
+        parent = f"  ({chunk.parent_class})" if chunk.parent_class else ""
+        print(f"  {line_count:>4}  {chunk.symbol_kind:<8} {chunk.symbol_name:<30}  {rel}:{chunk.start_line}{parent}")
     print()
     print("Smallest 5 chunks (lines):")
     for line_count, chunk in sizes[-5:]:
         rel = Path(chunk.file_path).relative_to(REPO_ROOT)
-        print(f"  {line_count:>4}  {chunk.symbol_kind:<8} {chunk.symbol_name:<30}  {rel}:{chunk.start_line}")
+        parent = f"  ({chunk.parent_class})" if chunk.parent_class else ""
+        print(f"  {line_count:>4}  {chunk.symbol_kind:<8} {chunk.symbol_name:<30}  {rel}:{chunk.start_line}{parent}")
 
     if files_with_zero:
         print()

@@ -1,9 +1,15 @@
 """AST-aware chunker for Python source files.
 
-Emits one chunk per top-level function or class. Decorators are included in the
-chunk span. Docstrings are extracted as a separate field for retrieval-time
-weighting later. Methods stay inside their parent class chunk in this version;
-splitting oversized classes is a follow-up.
+Top-level functions/classes become one chunk each. Classes that exceed
+`max_class_lines` are split into one chunk per method (`symbol_kind="method"`,
+`parent_class` set) so retrieval works on per-method granularity for huge
+classes like flask.app.Flask (1500+ lines).
+
+Limitations (intentional, deferred):
+- When a class is split, its class-level decorators, docstring, and bare
+  attribute assignments are not re-emitted as a "class header" chunk yet.
+  The class name is still preserved via `parent_class` on each method.
+- Nested classes inside an oversized class are skipped during splitting.
 """
 
 from __future__ import annotations
@@ -18,13 +24,15 @@ _PARSER = Parser(_PY_LANGUAGE)
 
 _DEF_TYPES = ("function_definition", "class_definition")
 
+DEFAULT_MAX_CLASS_LINES = 100
+
 
 @dataclass
 class CodeChunk:
     file_path: str
     symbol_name: str
-    symbol_kind: str  # "function" or "class"
-    start_line: int  # 1-indexed, inclusive (includes decorator lines)
+    symbol_kind: str  # "function" | "class" | "method"
+    start_line: int  # 1-indexed, inclusive
     end_line: int  # 1-indexed, inclusive
     code: str
     docstring: str | None = None
@@ -32,48 +40,103 @@ class CodeChunk:
     decorators: list[str] = field(default_factory=list)
 
 
-def chunk_python_file(file_path: str, source: str | bytes) -> list[CodeChunk]:
-    """Parse `source` as Python and return one chunk per top-level def/class."""
+def chunk_python_file(
+    file_path: str,
+    source: str | bytes,
+    *,
+    max_class_lines: int = DEFAULT_MAX_CLASS_LINES,
+) -> list[CodeChunk]:
+    """Parse `source` as Python and return chunks.
+
+    Top-level functions and small classes become one chunk. Classes whose
+    line span exceeds `max_class_lines` become one chunk per method.
+    """
     source_bytes = source.encode("utf-8") if isinstance(source, str) else source
     tree = _PARSER.parse(source_bytes)
 
     chunks: list[CodeChunk] = []
     for node in tree.root_node.children:
-        chunk = _node_to_chunk(node, source_bytes, file_path)
-        if chunk is not None:
-            chunks.append(chunk)
+        chunks.extend(_node_to_chunks(node, source_bytes, file_path, max_class_lines))
     return chunks
 
 
-def _node_to_chunk(node: Node, source_bytes: bytes, file_path: str) -> CodeChunk | None:
-    decorators: list[str] = []
-    target = node
-
-    if node.type == "decorated_definition":
-        for child in node.children:
-            if child.type == "decorator":
-                deco_text = _slice(source_bytes, child).lstrip("@").strip()
-                decorators.append(deco_text)
-            elif child.type in _DEF_TYPES:
-                target = child
-
-    if target.type not in _DEF_TYPES:
-        return None
+def _node_to_chunks(
+    node: Node, source_bytes: bytes, file_path: str, max_class_lines: int
+) -> list[CodeChunk]:
+    target, decorators = _unwrap_decorated(node, source_bytes)
+    if target is None or target.type not in _DEF_TYPES:
+        return []
 
     name_node = target.child_by_field_name("name")
     if name_node is None:
-        return None
+        return []
 
-    return CodeChunk(
+    symbol_name = _slice(source_bytes, name_node)
+    symbol_kind = "function" if target.type == "function_definition" else "class"
+
+    chunk = CodeChunk(
         file_path=file_path,
-        symbol_name=_slice(source_bytes, name_node),
-        symbol_kind="function" if target.type == "function_definition" else "class",
+        symbol_name=symbol_name,
+        symbol_kind=symbol_kind,
         start_line=node.start_point[0] + 1,
         end_line=node.end_point[0] + 1,
         code=_slice(source_bytes, node),
         docstring=_extract_docstring(target, source_bytes),
         decorators=decorators,
     )
+
+    if symbol_kind == "function":
+        return [chunk]
+
+    # Class: split if oversized
+    if chunk.end_line - chunk.start_line + 1 <= max_class_lines:
+        return [chunk]
+    return _split_class_into_methods(target, source_bytes, file_path, symbol_name)
+
+
+def _split_class_into_methods(
+    class_node: Node, source_bytes: bytes, file_path: str, parent_class: str
+) -> list[CodeChunk]:
+    body = class_node.child_by_field_name("body")
+    if body is None:
+        return []
+
+    chunks: list[CodeChunk] = []
+    for child in body.children:
+        method_target, method_decorators = _unwrap_decorated(child, source_bytes)
+        if method_target is None or method_target.type != "function_definition":
+            continue
+        name_node = method_target.child_by_field_name("name")
+        if name_node is None:
+            continue
+        chunks.append(
+            CodeChunk(
+                file_path=file_path,
+                symbol_name=_slice(source_bytes, name_node),
+                symbol_kind="method",
+                start_line=child.start_point[0] + 1,
+                end_line=child.end_point[0] + 1,
+                code=_slice(source_bytes, child),
+                docstring=_extract_docstring(method_target, source_bytes),
+                decorators=method_decorators,
+                parent_class=parent_class,
+            )
+        )
+    return chunks
+
+
+def _unwrap_decorated(node: Node, source_bytes: bytes) -> tuple[Node | None, list[str]]:
+    """Return (inner_def_node, decorators). For non-decorated nodes, returns (node, [])."""
+    if node.type != "decorated_definition":
+        return node, []
+    decorators: list[str] = []
+    inner: Node | None = None
+    for child in node.children:
+        if child.type == "decorator":
+            decorators.append(_slice(source_bytes, child).lstrip("@").strip())
+        elif child.type in _DEF_TYPES:
+            inner = child
+    return inner, decorators
 
 
 def _extract_docstring(target: Node, source_bytes: bytes) -> str | None:
@@ -86,7 +149,7 @@ def _extract_docstring(target: Node, source_bytes: bytes) -> str | None:
             if inner is not None and inner.type == "string":
                 return _unquote_string(_slice(source_bytes, inner))
             return None
-        if child.type in ("comment",):
+        if child.type == "comment":
             continue
         return None
     return None
