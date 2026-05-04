@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="code-rag logo">
+  <title>code-rag</title>
+
+  <!-- Rounded-square dark background -->
+  <rect x="0" y="0" width="512" height="512" rx="72" ry="72" fill="#0f172a"/>
+
+  <!-- Indigo accent corner brackets, hinting at code </> -->
+  <g stroke="#6366f1" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.55">
+    <!-- top-left bracket -->
+    <polyline points="60,86 60,60 86,60"/>
+    <!-- top-right bracket -->
+    <polyline points="426,60 452,60 452,86"/>
+    <!-- bottom-left bracket -->
+    <polyline points="86,452 60,452 60,426"/>
+    <!-- bottom-right bracket -->
+    <polyline points="452,426 452,452 426,452"/>
+  </g>
+
+  <!-- AST tree edges (parent -> child connections) -->
+  <g stroke="#475569" stroke-width="6" stroke-linecap="round">
+    <!-- root -> mid-left, root -> mid-right -->
+    <line x1="256" y1="148" x2="160" y2="248"/>
+    <line x1="256" y1="148" x2="352" y2="248"/>
+    <!-- mid-left -> leaf-1, leaf-2 -->
+    <line x1="160" y1="248" x2="96" y2="356"/>
+    <line x1="160" y1="248" x2="208" y2="356"/>
+    <!-- mid-right -> leaf-3, leaf-4 -->
+    <line x1="352" y1="248" x2="304" y2="356"/>
+    <line x1="352" y1="248" x2="416" y2="356"/>
+  </g>
+
+  <!-- Tree nodes -->
+  <!-- Root: largest, indigo-400 -->
+  <circle cx="256" cy="148" r="22" fill="#818cf8" stroke="#1e293b" stroke-width="3"/>
+  <!-- Mid level: indigo-300, medium -->
+  <circle cx="160" cy="248" r="17" fill="#a5b4fc" stroke="#1e293b" stroke-width="3"/>
+  <circle cx="352" cy="248" r="17" fill="#a5b4fc" stroke="#1e293b" stroke-width="3"/>
+  <!-- Leaves: white, smaller -->
+  <circle cx="96"  cy="356" r="13" fill="#f1f5f9" stroke="#1e293b" stroke-width="3"/>
+  <circle cx="208" cy="356" r="13" fill="#f1f5f9" stroke="#1e293b" stroke-width="3"/>
+  <circle cx="304" cy="356" r="13" fill="#f1f5f9" stroke="#1e293b" stroke-width="3"/>
+  <circle cx="416" cy="356" r="13" fill="#f1f5f9" stroke="#1e293b" stroke-width="3"/>
+
+  <!-- Wordmark -->
+  <text x="256" y="448"
+        text-anchor="middle"
+        fill="#e2e8f0"
+        font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, 'Cascadia Mono', monospace"
+        font-size="40"
+        font-weight="600"
+        letter-spacing="2">code-rag</text>
+</svg>

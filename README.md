@@ -1,6 +1,12 @@
-# code-rag
+<p align="center">
+  <img src="docs/logo.svg" alt="code-rag" width="200">
+</p>
 
-Code RAG over [`pallets/flask`](https://github.com/pallets/flask) with AST-aware chunking, hybrid retrieval, and a measured eval harness.
+<h1 align="center">code-rag</h1>
+
+<p align="center">
+  Code RAG over <a href="https://github.com/pallets/flask"><code>pallets/flask</code></a> with AST-aware chunking, hybrid retrieval, and a measured eval harness.
+</p>
 
 **Headline:** **recall@5 = 0.900** (hybrid) on a 30-question hand-curated eval set, with a full 3-way ablation against vector-only and BM25-only baselines. Sub-10ms retrieval over 342 AST chunks.
 
