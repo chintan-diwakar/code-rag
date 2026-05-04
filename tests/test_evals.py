@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from vishanti.evals import EvalQuestion, GroundTruthSpan, load_dataset
+from code_rag.evals import EvalQuestion, GroundTruthSpan, load_dataset
 
 DATASET = Path(__file__).resolve().parents[1] / "evals" / "dataset.json"
 

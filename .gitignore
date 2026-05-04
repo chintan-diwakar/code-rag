@@ -33,3 +33,10 @@ build/
 data/
 *.sqlite
 *.db
+
+# Claude Code local settings (per-machine, never commit)
+.claude/settings.local.json
+
+# Accidental tilde-expansion artifact from PowerShell
+~/
+

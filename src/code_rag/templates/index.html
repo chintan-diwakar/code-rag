@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>code-rag — Code RAG over pallets/flask</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", monospace; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-10">
+    <header class="mb-8">
+      <h1 class="text-3xl font-semibold">code-rag</h1>
+      <p class="text-slate-600 mt-1">
+        Code RAG over <code class="text-sm bg-slate-200 px-1.5 py-0.5 rounded">pallets/flask</code> &middot;
+        AST-aware chunking &middot; vector / bm25 / hybrid retrieval
+      </p>
+      <p class="text-xs text-slate-500 mt-2">
+        {{ n_chunks }} chunks indexed &middot; embedder: <code>{{ model }}</code> &middot;
+        eval recall@5 = <strong>0.900</strong> (hybrid) &mdash; see
+        <a class="underline" href="https://github.com/" target="_blank" rel="noopener">evals/REPORT.md</a>
+      </p>
+    </header>
+
+    <form
+      hx-post="/search"
+      hx-target="#results"
+      hx-swap="innerHTML"
+      hx-indicator="#spinner"
+      class="space-y-3 bg-white border border-slate-200 rounded-lg p-4 shadow-sm"
+    >
+      <label class="block">
+        <span class="text-sm font-medium text-slate-700">Ask a question about flask&rsquo;s code</span>
+        <input
+          type="text"
+          name="q"
+          required
+          autofocus
+          placeholder="e.g. where is request_class defined?"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+      </label>
+
+      <div class="flex flex-wrap items-center gap-4">
+        <label class="text-sm">
+          <span class="text-slate-700 mr-2">Mode</span>
+          <select name="mode" class="border border-slate-300 rounded px-2 py-1">
+            {% for m in modes %}
+              <option value="{{ m }}" {% if m == default_mode %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="text-sm">
+          <span class="text-slate-700 mr-2">k</span>
+          <input
+            type="number" name="k" value="5" min="1" max="20"
+            class="w-16 border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+
+        <button
+          type="submit"
+          class="ml-auto bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-indigo-700"
+        >Search</button>
+
+        <span id="spinner" class="htmx-indicator text-sm text-slate-500">searching&hellip;</span>
+      </div>
+    </form>
+
+    <section id="results" class="mt-6"></section>
+
+    <footer class="mt-12 text-xs text-slate-500">
+      <p>
+        Source: <a class="underline" href="https://github.com/pallets/flask" target="_blank" rel="noopener">pallets/flask</a> &middot;
+        chunker: tree-sitter-python &middot;
+        retriever: cosine + BM25+ + RRF (c=60)
+      </p>
+    </footer>
+  </div>
+
+  <style>
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+    .htmx-request.htmx-indicator { opacity: 1; }
+  </style>
+</body>
+</html>

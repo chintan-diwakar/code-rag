@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-from vishanti.evals.types import EvalDataset, load_dataset
+from code_rag.evals.types import EvalDataset, load_dataset
 
 VALID_CATEGORIES = {"where_defined", "how_works", "what_calls"}
 VALID_CONFIDENCE = {"high", "medium"}

@@ -1,7 +1,7 @@
 """Run the eval set against vector / bm25 / hybrid pipelines.
 
 Usage:
-    .venv/Scripts/python -m vishanti.evals.run
+    .venv/Scripts/python -m code_rag.evals.run
 
 Writes evals/REPORT.md (hybrid headline) and evals/ABLATION.md (3-way diff).
 
@@ -23,10 +23,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from vishanti.chunker_ast import CodeChunk, chunk_python_file
-from vishanti.embedder import DEFAULT_MODEL, Embedder
-from vishanti.evals.types import EvalQuestion, load_dataset
-from vishanti.retriever import (
+from code_rag.chunker_ast import CodeChunk, chunk_python_file
+from code_rag.embedder import DEFAULT_MODEL, Embedder
+from code_rag.evals.types import EvalQuestion, load_dataset
+from code_rag.retriever import (
     BM25Retriever,
     HybridRetriever,
     RetrievalHit,

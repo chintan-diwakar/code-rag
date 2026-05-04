@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from vishanti.chunker_ast import CodeChunk
-from vishanti.retriever import (
+from code_rag.chunker_ast import CodeChunk
+from code_rag.retriever import (
     BM25Retriever,
     HybridRetriever,
     InMemoryRetriever,

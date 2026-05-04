@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from vishanti.chunker_ast import CodeChunk
+from code_rag.chunker_ast import CodeChunk
 
 # Backwards-compatible alias used by older tests / scripts.
 __all__ = [

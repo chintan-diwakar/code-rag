@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from vishanti.embedder import DEFAULT_MODEL, Embedder
+from code_rag.embedder import DEFAULT_MODEL, Embedder
 
 
 @pytest.fixture(scope="module")

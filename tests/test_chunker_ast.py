@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from vishanti.chunker_ast import CodeChunk, chunk_python_file
+from code_rag.chunker_ast import CodeChunk, chunk_python_file
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample.py"
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from vishanti.chunker_ast import CodeChunk, chunk_python_file
+from code_rag.chunker_ast import CodeChunk, chunk_python_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FLASK_SRC = REPO_ROOT / "data" / "flask" / "src" / "flask"
@@ -50,7 +50,7 @@ def main() -> int:
     sizes.sort(key=lambda pair: pair[0], reverse=True)
 
     print(f"{'=' * 60}")
-    print(f"vishanti AST chunker - smoke test on pallets/flask")
+    print(f"code-rag AST chunker - smoke test on pallets/flask")
     print(f"{'=' * 60}")
     print(f"Source dir:       {FLASK_SRC.relative_to(REPO_ROOT)}")
     print(f"Python files:     {len(py_files)}")

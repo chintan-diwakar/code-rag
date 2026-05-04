@@ -1,16 +1,16 @@
 # Evals
 
-Hand-curated 30-question evaluation set for vishanti's Code RAG pipeline, targeting `pallets/flask`.
+Hand-curated 30-question evaluation set for the code-rag pipeline, targeting `pallets/flask`.
 
 ## Why this matters
 
-Without evals, every change to the chunker, embedder, or retriever is a guess. With evals, "we tried X and recall@5 went from 0.62 to 0.81" is a defensible claim. This directory is what turns vishanti from "a SaaS that uses RAG" into "a measured RAG system that ships as a SaaS."
+Without evals, every change to the chunker, embedder, or retriever is a guess. With evals, "we tried X and recall@5 went from 0.62 to 0.81" is a defensible claim. This directory is what turns code-rag from "yet another RAG demo" into "a measured RAG system."
 
 ## Files
 
-- **`dataset.json`** — the 30 questions. Schema in `src/vishanti/evals/types.py`.
-- `../src/vishanti/evals/types.py` — `EvalQuestion`, `GroundTruthSpan`, `load_dataset`.
-- `../src/vishanti/evals/verify.py` — sanity check: file paths exist, line ranges in bounds, keywords present.
+- **`dataset.json`** — the 30 questions. Schema in `src/code_rag/evals/types.py`.
+- `../src/code_rag/evals/types.py` — `EvalQuestion`, `GroundTruthSpan`, `load_dataset`.
+- `../src/code_rag/evals/verify.py` — sanity check: file paths exist, line ranges in bounds, keywords present.
 - `../tests/test_evals.py` — schema and counting tests (`pytest -v`).
 
 ## Categories (10 each)
@@ -61,7 +61,7 @@ For week 1 we report `recall@5`. Later: MRR (mean reciprocal rank) and faithfuln
 ## Running the verifier
 
 ```bash
-.venv/Scripts/python -m vishanti.evals.verify
+.venv/Scripts/python -m code_rag.evals.verify
 ```
 
 Should print "OK - all structural checks passed." If a `file_path` was renamed in flask main, the verifier flags it and you update the dataset.
@@ -74,7 +74,7 @@ To add a question:
 2. Append to `dataset.json` with the next sequential ID.
 3. Add `expected_keywords` that should appear in a correct answer body (used by the verifier as a soft check, and later by the LLM-as-judge faithfulness scorer).
 4. Set `confidence: "medium"` if the canonical answer is debatable.
-5. Run `python -m vishanti.evals.verify` to confirm.
+5. Run `python -m code_rag.evals.verify` to confirm.
 6. Run `pytest tests/test_evals.py -v` to confirm schema tests still pass.
 
 ## Versioning
